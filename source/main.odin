@@ -10,6 +10,9 @@ import sg "sokol/gfx"
 import sglue "sokol/glue"
 import shelpers "sokol/helpers"
 
+/* stb imports */
+import stbi "vendor:stb/image"
+
 /* My utils */
 import "utils"
 
@@ -63,13 +66,17 @@ init_cb :: proc "c"() {
 	})
 
 	vertices := []utils.VertexData {
-		{position = {0.0, 0.5}, color = {1, 0, 0, 1}},
-		{position = {-0.5, -0.5}, color = {0, 1, 0, 1}},
-		{position = {0.5, -0.5}, color = {0, 0, 1, 1}},
+		{position = {-0.5,   0.5}, color = {1, 0, 0, 1}},
+		{position = {-0.5, -0.5},  color = {0, 1, 0, 1}},
+		{position = {0.5,  -0.5},  color = {0, 0, 1, 1}},
+
+		{position = {-0.5, 0.5},   color = {1, 0, 0, 1}},
+		{position = {0.5, -0.5},    color = {0, 0, 1, 1}},
+		{position = {0.5, 0.5},    color = {0, 1, 0, 1}},
 	}
 
 	global.vertex_buffer = sg.make_buffer({
-		data = { ptr = raw_data(vertices), size = len(vertices) * size_of(vertices[0])}
+		data = sg_range(vertices)
 	})
 }
 
@@ -83,7 +90,7 @@ frame_cb :: proc "c"() {
 	sg.apply_bindings({
 		vertex_buffers = {0 = global.vertex_buffer}
 	})
-	sg.draw(0, 3, 1)
+	sg.draw(0, 6, 1) // num_elemnts = nombre de VertexData
 	
 	sg.end_pass()
 
@@ -106,5 +113,13 @@ event_cb :: proc "c"(event: ^sapp.Event) {
 
 	if event.key_code == .ESCAPE {
 		sapp.request_quit()
+	}
+}
+
+// Retourne un range depuis un slice.
+sg_range :: proc(s: []$T) -> sg.Range {
+	return {
+		ptr = raw_data(s),
+		size = len(s) * size_of(s[0])
 	}
 }
