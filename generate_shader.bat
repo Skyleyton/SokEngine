@@ -1,0 +1,1 @@
+.\tools\sokol-shdc.exe -i shader.glsl -o source/shader.odin -l hlsl5 -f sokol_odin
