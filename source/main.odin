@@ -24,7 +24,7 @@ Globals :: struct {
 	vertex_buffer: sg.Buffer
 }
 
-global: ^Globals
+global: ^Globals // Pointeur pour permettre l'hot code reloading.
 
 main :: proc() {
 	context.logger = log.create_console_logger()
@@ -65,7 +65,7 @@ init_cb :: proc "c"() {
 		}
 	})
 
-	vertices := []utils.VertexData {
+	vertices := []utils.Vertex {
 		{position = {-0.5,   0.5}, color = {1, 0, 0, 1}},
 		{position = {-0.5, -0.5},  color = {0, 1, 0, 1}},
 		{position = {0.5,  -0.5},  color = {0, 0, 1, 1}},
@@ -78,6 +78,8 @@ init_cb :: proc "c"() {
 	global.vertex_buffer = sg.make_buffer({
 		data = sg_range(vertices)
 	})
+
+	log.debug(sg.query_backend())
 }
 
 // Render code here
@@ -93,7 +95,6 @@ frame_cb :: proc "c"() {
 	sg.draw(0, 6, 1) // num_elemnts = nombre de VertexData
 	
 	sg.end_pass()
-
 	sg.commit()
 }
 
