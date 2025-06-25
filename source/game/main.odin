@@ -16,7 +16,7 @@ GameState :: struct {
     pass_action: sg.Pass_Action,
     logger: log.Logger,
     vertex_buffer: sg.Buffer,
-    pipeline: sg.Pipeline,
+    pipeline: [2]sg.Pipeline, // 1 en mode normal, l'autre en wireframe.
     shader: sg.Shader
 }
 
@@ -60,8 +60,21 @@ init_cb :: proc "c" () {
     }
 
     state.shader = sg.make_shader(main_shader_desc(sg.query_backend()))
-    state.pipeline = sg.make_pipeline({
+
+    state.pipeline[0] = sg.make_pipeline({
         shader = state.shader,
+        primitive_type = .TRIANGLES,
+        layout = {
+            attrs = {
+                ATTR_main_in_position = {format = .FLOAT3},
+                ATTR_main_in_color = {format = .FLOAT4}
+            }
+        }
+    })
+
+    state.pipeline[1] = sg.make_pipeline({
+        shader = state.shader,
+        primitive_type = .LINES,
         layout = {
             attrs = {
                 ATTR_main_in_position = {format = .FLOAT3},
@@ -99,7 +112,7 @@ frame_cb :: proc "c" () {
         action = state.pass_action,
     })
 
-    sg.apply_pipeline(state.pipeline)
+    sg.apply_pipeline(state.pipeline[0])
     sg.apply_bindings({
         vertex_buffers = {0 = state.vertex_buffer}
     })
@@ -115,7 +128,9 @@ cleanup_cb :: proc "c" () {
     context = default_context
 
     sg.destroy_buffer(state.vertex_buffer)
-    sg.destroy_pipeline(state.pipeline)
+    for pipeline in state.pipeline {
+        sg.destroy_pipeline(pipeline)
+    }
     sg.destroy_shader(state.shader)
 
     free(state)
