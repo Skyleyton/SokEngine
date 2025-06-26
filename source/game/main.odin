@@ -16,8 +16,10 @@ GameState :: struct {
     pass_action: sg.Pass_Action,
     logger: log.Logger,
     vertex_buffer: sg.Buffer,
+    index_buffer: sg.Buffer,
     pipeline: [2]sg.Pipeline, // 1 en mode normal, l'autre en wireframe.
-    shader: sg.Shader
+    shader: sg.Shader,
+    pipeline_index: int
 }
 
 state: ^GameState
@@ -61,6 +63,27 @@ init_cb :: proc "c" () {
 
     state.shader = sg.make_shader(main_shader_desc(sg.query_backend()))
 
+    triangle_vertices := []utils.Vertex {
+        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {0.0, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+    }
+
+    quad_vertices := []utils.Vertex {
+        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+
+        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {-0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+    }
+
+
+    state.vertex_buffer = sg.make_buffer({
+        data = utils.sg_range(quad_vertices)
+    })
+
     state.pipeline[0] = sg.make_pipeline({
         shader = state.shader,
         primitive_type = .TRIANGLES,
@@ -83,25 +106,7 @@ init_cb :: proc "c" () {
         }
     })
 
-    triangle_vertices := []utils.Vertex {
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, -0.5, 0.0}, color = {0.0, 1.0, 0.0, 1.0}},
-        {position = {0.0, 0.5, 0.0}, color = {0.0, 0.0, 1.0, 1.0}},
-    }
-
-    quad_vertices := []utils.Vertex {
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, -0.5, 0.0}, color = {0.0, 0.0, 1.0, 1.0}},
-        {position = {0.5, 0.5, 0.0}, color = {0.0, 0.0, 1.0, 1.0}},
-
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, 0.5, 0.0}, color = {0.0, 0.0, 1.0, 1.0}},
-        {position = {-0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-    }
-
-    state.vertex_buffer = sg.make_buffer({
-        data = utils.sg_range(quad_vertices)
-    })
+    state.pipeline_index = 0
 }
 
 frame_cb :: proc "c" () {
@@ -112,9 +117,10 @@ frame_cb :: proc "c" () {
         action = state.pass_action,
     })
 
-    sg.apply_pipeline(state.pipeline[0])
+    sg.apply_pipeline(state.pipeline[state.pipeline_index])
     sg.apply_bindings({
-        vertex_buffers = {0 = state.vertex_buffer}
+        vertex_buffers = {0 = state.vertex_buffer},
+        index_buffer = state.index_buffer
     })
 
     sg.draw(0, 6, 1)
@@ -141,5 +147,6 @@ event_cb :: proc "c" (event: ^sapp.Event) {
     #partial switch event.type {
         case .KEY_DOWN:
         if event.key_code == .ESCAPE do sapp.request_quit()
+        if event.key_code == .TAB do state.pipeline_index = (len(state.pipeline) - 1) - state.pipeline_index
     }
 }
