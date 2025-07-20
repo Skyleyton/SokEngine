@@ -11,6 +11,8 @@ import sglue "sokol/glue"
 import shelpers "sokol/helpers"
 import sgl "sokol/gl"
 
+import shader "shaders_code"
+
 State :: struct {
     pass_action: sg.Pass_Action,
     logger: log.Logger,
@@ -19,6 +21,7 @@ State :: struct {
     pipeline: [2]sg.Pipeline,
     shader: [2]sg.Shader,
     texture: sg.Image,
+    sampler: sg.Sampler,
     pipeline_index: int
 }
 
@@ -61,14 +64,14 @@ init_cb :: proc "c" () {
         }
     }
 
-    state.shader[0] = sg.make_shader(base_shader_desc(sg.query_backend()))
-    state.shader[1] = sg.make_shader(points_shader_desc(sg.query_backend()))
+    state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
+    state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
 
     vertices := []Vertex {
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {-0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
+        {position = {-0.5, -0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {0.0, 1.0}},
+        {position = {0.5, -0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {1.0, 1.0}},
+        {position = {0.5, 0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {1.0, 0.0}},
+        {position = {-0.5, 0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {0.0, 0.0}},
     }
 
     indices := []u16 {
@@ -93,8 +96,9 @@ init_cb :: proc "c" () {
         index_type = .UINT16,
         layout = {
             attrs = {
-                ATTR_base_in_position = {format = .FLOAT3},
-                ATTR_base_in_color = {format = .FLOAT4}
+                shader.ATTR_textured_in_position = {format = .FLOAT3},
+                shader.ATTR_textured_in_color = {format = .FLOAT4},
+                shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
         }
     })
@@ -105,11 +109,15 @@ init_cb :: proc "c" () {
         index_type = .UINT16,
         layout = {
             attrs = {
-                ATTR_points_in_position = {format = .FLOAT3},
-                ATTR_points_in_color = {format = .FLOAT4}
+                shader.ATTR_base_points_in_position = {format = .FLOAT3},
+                shader.ATTR_base_points_in_color = {format = .FLOAT4},
+                shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
         }
     })
+
+    state.texture = sg_get_image("assets/textures/SLIME_1A.png")
+    state.sampler = sg.make_sampler({})
 
     state.pipeline_index = 0
 }
@@ -126,7 +134,9 @@ frame_cb :: proc "c" () {
     
     binding := sg.Bindings{
         vertex_buffers = {0 = state.vertex_buffer},
-        index_buffer = state.index_buffer
+        index_buffer = state.index_buffer,
+        images = {shader.IMG_my_texture = state.texture},
+        samplers = {shader.SMP_smp = state.sampler},
     }
     sg.apply_bindings(binding)
     
@@ -144,8 +154,12 @@ cleanup_cb :: proc "c" () {
     for pipeline in state.pipeline {
         sg.destroy_pipeline(pipeline)
     }
-    sg.destroy_shader(state.shader[0])
-    sg.destroy_shader(state.shader[1])
+
+    for shader in state.shader {
+        sg.destroy_shader(shader)
+    }
+    sg.destroy_image(state.texture)
+    sg.destroy_sampler(state.sampler)
 
     free(state)
     sg.shutdown()
@@ -155,6 +169,9 @@ event_cb :: proc "c" (event: ^sapp.Event) {
     #partial switch event.type {
         case .KEY_DOWN:
         if event.key_code == .ESCAPE do sapp.request_quit()
-        if event.key_code == .TAB do state.pipeline_index = (len(state.pipeline) - 1) - state.pipeline_index
+        if event.key_code == .TAB {
+            state.pipeline_index += 1
+            state.pipeline_index = state.pipeline_index % len(state.pipeline)
+        }
     }
 }
