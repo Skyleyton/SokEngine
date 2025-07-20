@@ -1,16 +1,22 @@
 @header package shaders
 @header import sg "../sokol/gfx"
 
+@ctype mat4 Mat4 // Sorte de remplacement de code en fait.
+
 @vs vs
 in vec3 in_position;
 in vec4 in_color;
 in vec2 in_uv;
 
+layout(binding = 0) uniform vs_params {
+    mat4 mvp;
+};
+
 out vec4 color;
 out vec2 out_uv;
 
 void main() {
-    gl_Position = vec4(in_position, 1.0);
+    gl_Position = mvp * vec4(in_position, 1.0);
     color = in_color;
     out_uv = in_uv;
 }
