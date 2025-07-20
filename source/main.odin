@@ -5,24 +5,24 @@ import "core:log"
 import "core:c"
 import "base:runtime"
 
-import "utils"
+import sapp "sokol/app"
+import sg "sokol/gfx"
+import sglue "sokol/glue"
+import shelpers "sokol/helpers"
+import sgl "sokol/gl"
 
-import sapp "../sokol/app"
-import sg "../sokol/gfx"
-import sglue "../sokol/glue"
-import shelpers "../sokol/helpers"
-
-GameState :: struct {
+State :: struct {
     pass_action: sg.Pass_Action,
     logger: log.Logger,
     vertex_buffer: sg.Buffer,
     index_buffer: sg.Buffer,
-    pipeline: [2]sg.Pipeline, // 1 en mode normal, l'autre en wireframe.
-    shader: sg.Shader,
+    pipeline: [2]sg.Pipeline,
+    shader: [2]sg.Shader,
+    texture: sg.Image,
     pipeline_index: int
 }
 
-state: ^GameState
+state: ^State
 default_context: runtime.Context
 
 main :: proc() {
@@ -53,7 +53,7 @@ init_cb :: proc "c" () {
         logger = sg.Logger(shelpers.logger(&default_context))
     })
 
-    state = new(GameState)
+    state = new(State)
 
     state.pass_action = {
         colors = {
@@ -61,47 +61,52 @@ init_cb :: proc "c" () {
         }
     }
 
-    state.shader = sg.make_shader(main_shader_desc(sg.query_backend()))
+    state.shader[0] = sg.make_shader(base_shader_desc(sg.query_backend()))
+    state.shader[1] = sg.make_shader(points_shader_desc(sg.query_backend()))
 
-    triangle_vertices := []utils.Vertex {
+    vertices := []Vertex {
         {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
         {position = {0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.0, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-    }
-
-    quad_vertices := []utils.Vertex {
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-        {position = {0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
-
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
         {position = {0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
         {position = {-0.5, 0.5, 0.0}, color = {1.0, 0.0, 0.0, 1.0}},
     }
 
+    indices := []u16 {
+        0, 1, 2,
+        0, 2, 3
+    }
 
     state.vertex_buffer = sg.make_buffer({
-        data = utils.sg_range(quad_vertices)
+        data = sg_range(vertices)
+    })
+
+    state.index_buffer = sg.make_buffer({
+        usage = {
+            index_buffer = true
+        },
+        data = sg_range(indices)
     })
 
     state.pipeline[0] = sg.make_pipeline({
-        shader = state.shader,
+        shader = state.shader[0],
         primitive_type = .TRIANGLES,
+        index_type = .UINT16,
         layout = {
             attrs = {
-                ATTR_main_in_position = {format = .FLOAT3},
-                ATTR_main_in_color = {format = .FLOAT4}
+                ATTR_base_in_position = {format = .FLOAT3},
+                ATTR_base_in_color = {format = .FLOAT4}
             }
         }
     })
 
     state.pipeline[1] = sg.make_pipeline({
-        shader = state.shader,
-        primitive_type = .LINES,
+        shader = state.shader[1],
+        primitive_type = .POINTS,
+        index_type = .UINT16,
         layout = {
             attrs = {
-                ATTR_main_in_position = {format = .FLOAT3},
-                ATTR_main_in_color = {format = .FLOAT4}
+                ATTR_points_in_position = {format = .FLOAT3},
+                ATTR_points_in_color = {format = .FLOAT4}
             }
         }
     })
@@ -118,11 +123,13 @@ frame_cb :: proc "c" () {
     })
 
     sg.apply_pipeline(state.pipeline[state.pipeline_index])
-    sg.apply_bindings({
+    
+    binding := sg.Bindings{
         vertex_buffers = {0 = state.vertex_buffer},
         index_buffer = state.index_buffer
-    })
-
+    }
+    sg.apply_bindings(binding)
+    
     sg.draw(0, 6, 1)
 
     sg.end_pass()
@@ -137,7 +144,8 @@ cleanup_cb :: proc "c" () {
     for pipeline in state.pipeline {
         sg.destroy_pipeline(pipeline)
     }
-    sg.destroy_shader(state.shader)
+    sg.destroy_shader(state.shader[0])
+    sg.destroy_shader(state.shader[1])
 
     free(state)
     sg.shutdown()
