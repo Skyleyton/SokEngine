@@ -1,10 +1,9 @@
 package main
 
-import "base:sanitizer"
+import "base:runtime"
 import "core:log"
 import "core:fmt"
-import "core:c"
-import "base:runtime"
+import "core:math/linalg"
 
 import sapp "sokol/app"
 import sg "sokol/gfx"
@@ -23,12 +22,13 @@ State :: struct {
     shader: [2]sg.Shader,
     texture: sg.Image,
     sampler: sg.Sampler,
-    pipeline_index: int
+    pipeline_index: int,
+    rotation: f32
 }
 
 state: ^State
-default_context: runtime.Context
 obj: ObjData
+default_context: runtime.Context
 
 main :: proc() {
     context.logger = log.create_console_logger()
@@ -69,17 +69,27 @@ init_cb :: proc "c" () {
     state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
     state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
 
-    obj = load_model_from_file("assets/models/utah_teapot.obj")
+    obj = load_ObjData("assets/models/standford_bunny.obj")
 
     new_vertices := make([]Vertex, len(obj.faces))
     new_indices := make([]u16, len(obj.faces))
 
     for face, i in obj.faces {
-        new_vertices[i] = {
-            position = obj.positions[face.pos],
-            color = {1.0, 1.0, 1.0, 1.0},
-            uv = {0.0, 0.0}
+        if obj.with_slash {
+            new_vertices[i] = {
+                position = obj.positions[face.pos],
+                color = {1.0, 1.0, 1.0, 1.0},
+                uv = obj.uvs[face.uv]
+            }
         }
+        else {
+            new_vertices[i] = {
+                position = obj.positions[face.pos],
+                color = {1.0, 1.0, 1.0, 1.0},
+                uv = {}
+            }
+        }
+        
         new_indices[i] = cast(u16)i
     }
 
@@ -104,6 +114,9 @@ init_cb :: proc "c" () {
                 shader.ATTR_textured_in_color = {format = .FLOAT4},
                 shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
+        },
+        depth = {
+            compare = .LESS
         }
     })
 
@@ -117,6 +130,9 @@ init_cb :: proc "c" () {
                 shader.ATTR_base_points_in_color = {format = .FLOAT4},
                 shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
+        },
+        depth = {
+            compare = .LESS
         }
     })
 
@@ -129,10 +145,18 @@ init_cb :: proc "c" () {
 frame_cb :: proc "c" () {
     context = default_context
 
-    sg.begin_pass({
-        swapchain = shelpers.glue_swapchain(),
-        action = state.pass_action,
-    })
+    dt := cast(f32)sapp.frame_duration()
+
+    state.rotation += linalg.to_radians(30.0 * dt)
+
+    proj_mat := linalg.matrix4_perspective_f32(70, sapp.widthf() / sapp.heightf(), 0.0001, 1000)
+    model_mat := linalg.matrix4_translate_f32({0.0, -0.10, -0.25}) * linalg.matrix4_from_yaw_pitch_roll(state.rotation, 0.0, 0.0)
+
+    sg.begin_pass({swapchain = shelpers.glue_swapchain(), action = state.pass_action})
+
+    vs_params := shader.Vs_Params {
+        mvp = proj_mat * model_mat
+    }
 
     sg.apply_pipeline(state.pipeline[state.pipeline_index])
     
@@ -144,6 +168,7 @@ frame_cb :: proc "c" () {
     }
     sg.apply_bindings(binding)
     
+    sg.apply_uniforms(shader.UB_vs_params, sg_range(&vs_params))
     sg.draw(0, len(obj.faces), 1)
 
     sg.end_pass()
@@ -164,6 +189,7 @@ cleanup_cb :: proc "c" () {
     }
     sg.destroy_image(state.texture)
     sg.destroy_sampler(state.sampler)
+    ObjData_destroy(obj)
 
     free(state)
     sg.shutdown()
