@@ -2,6 +2,7 @@ package main
 
 import "base:sanitizer"
 import "core:log"
+import "core:fmt"
 import "core:c"
 import "base:runtime"
 
@@ -66,6 +67,7 @@ init_cb :: proc "c" () {
 
     state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
     state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
+    model := load_model_from_file("assets/models/utah_teapot.obj")
 
     vertices := []Vertex {
         {position = {-0.5, -0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {0.0, 1.0}},
