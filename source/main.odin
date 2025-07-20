@@ -28,6 +28,7 @@ State :: struct {
 
 state: ^State
 default_context: runtime.Context
+obj: ObjData
 
 main :: proc() {
     context.logger = log.create_console_logger()
@@ -67,29 +68,30 @@ init_cb :: proc "c" () {
 
     state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
     state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
-    model := load_model_from_file("assets/models/utah_teapot.obj")
 
-    vertices := []Vertex {
-        {position = {-0.5, -0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {0.0, 1.0}},
-        {position = {0.5, -0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {1.0, 1.0}},
-        {position = {0.5, 0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {1.0, 0.0}},
-        {position = {-0.5, 0.5, 0.0}, color = {1.0, 1.0, 1.0, 1.0}, uv = {0.0, 0.0}},
-    }
+    obj = load_model_from_file("assets/models/utah_teapot.obj")
 
-    indices := []u16 {
-        0, 1, 2,
-        0, 2, 3
+    new_vertices := make([]Vertex, len(obj.faces))
+    new_indices := make([]u16, len(obj.faces))
+
+    for face, i in obj.faces {
+        new_vertices[i] = {
+            position = obj.positions[face.pos],
+            color = {1.0, 1.0, 1.0, 1.0},
+            uv = {0.0, 0.0}
+        }
+        new_indices[i] = cast(u16)i
     }
 
     state.vertex_buffer = sg.make_buffer({
-        data = sg_range(vertices)
+        data = sg_range(new_vertices)
     })
 
     state.index_buffer = sg.make_buffer({
         usage = {
             index_buffer = true
         },
-        data = sg_range(indices)
+        data = sg_range(new_indices)
     })
 
     state.pipeline[0] = sg.make_pipeline({
@@ -142,7 +144,7 @@ frame_cb :: proc "c" () {
     }
     sg.apply_bindings(binding)
     
-    sg.draw(0, 6, 1)
+    sg.draw(0, len(obj.faces), 1)
 
     sg.end_pass()
 
