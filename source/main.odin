@@ -28,11 +28,12 @@ State :: struct {
 
 state: ^State
 obj: ObjData
+model: ObjModel
 default_context: runtime.Context
 
 main :: proc() {
     context.logger = log.create_console_logger()
-    default_context = context 
+    default_context = context
 
     sapp.run({
         width = 800,
@@ -69,10 +70,11 @@ init_cb :: proc "c" () {
     state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
     state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
 
-    obj = load_ObjData("assets/models/standford_bunny.obj")
+    obj = load_ObjData_from_file("assets/models/bullet-foam-thick.obj")
+    model = ObjModel_from_ObjData(obj, "assets/textures/colormap.png")
 
-    new_vertices := make([]Vertex, len(obj.faces))
-    new_indices := make([]u16, len(obj.faces))
+    new_vertices := make([]Vertex, len(obj.faces), context.temp_allocator)
+    new_indices := make([]u16, len(obj.faces), context.temp_allocator)
 
     for face, i in obj.faces {
         if obj.with_slash {
@@ -115,8 +117,31 @@ init_cb :: proc "c" () {
                 shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
         },
+        /*color_count = 1,
+        colors = {
+            0 = {
+                blend = {
+                    enabled = true,
+                    src_factor_rgb = .SRC_ALPHA,
+                    dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
+                    op_rgb = .ADD,
+                    src_factor_alpha = .SRC_ALPHA,
+                    dst_factor_alpha = .ONE_MINUS_SRC_ALPHA,
+                    op_alpha = .ADD
+                }
+            }
+        },*/
         depth = {
-            compare = .LESS
+            write_enabled = true,
+            compare = .LESS_EQUAL
+        },
+        stencil = {
+            enabled = true,
+            read_mask = 1,
+            write_mask = 1,
+            back = {
+                compare = .LESS_EQUAL
+            },
         }
     })
 
@@ -132,11 +157,20 @@ init_cb :: proc "c" () {
             }
         },
         depth = {
-            compare = .LESS
+            write_enabled = true,
+            compare = .LESS_EQUAL
+        },
+        stencil = {
+            enabled = true,
+            read_mask = 1,
+            write_mask = 1,
+            back = {
+                compare = .LESS_EQUAL
+            },
         }
     })
 
-    state.texture = sg_get_image("assets/textures/SLIME_1A.png")
+    state.texture = sg_get_image("assets/textures/colormap.png")
     state.sampler = sg.make_sampler({})
 
     state.pipeline_index = 0
@@ -147,10 +181,10 @@ frame_cb :: proc "c" () {
 
     dt := cast(f32)sapp.frame_duration()
 
-    state.rotation += linalg.to_radians(30.0 * dt)
+    state.rotation += linalg.to_radians(60.0 * dt)
 
     proj_mat := linalg.matrix4_perspective_f32(70, sapp.widthf() / sapp.heightf(), 0.0001, 1000)
-    model_mat := linalg.matrix4_translate_f32({0.0, -0.10, -0.25}) * linalg.matrix4_from_yaw_pitch_roll(state.rotation, 0.0, 0.0)
+    model_mat := linalg.matrix4_translate_f32({0.0, -0.10, -2.25}) * linalg.matrix4_from_yaw_pitch_roll(state.rotation, 0.0, 0.0)
 
     sg.begin_pass({swapchain = shelpers.glue_swapchain(), action = state.pass_action})
 
@@ -189,9 +223,10 @@ cleanup_cb :: proc "c" () {
     }
     sg.destroy_image(state.texture)
     sg.destroy_sampler(state.sampler)
-    ObjData_destroy(obj)
-
+    
+    ObjModel_destroy(model)
     free(state)
+    free_all(context.temp_allocator)
     sg.shutdown()
 }
 
