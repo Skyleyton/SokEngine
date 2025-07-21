@@ -43,17 +43,25 @@ ObjModel :: struct {
 }
 
 parse_string_to_f32 :: proc(float_str: string) -> f32 {
-    val, ok := strconv.parse_f32(float_str); assert(ok)
+    val, ok := strconv.parse_f32(float_str)
+    if !ok {
+        log.debugf("Error while parsing string: {}", float_str)
+        os.exit(1)
+    }
     return val
 }
 
 parse_string_to_uint :: proc(uint_str: string) -> uint {
-    val, ok := strconv.parse_uint(uint_str); assert(ok)
+    val, ok := strconv.parse_uint(uint_str)
+    if !ok {
+        log.debugf("Error while parsing string: {}", uint_str)
+        os.exit(1)
+    }
     return val
 }
 
 extract_separated :: proc(s: ^string, sep: byte) -> string {
-    sub, ok := strings.split_by_byte_iterator(s, sep); assert(ok)
+    sub, ok := strings.split_by_byte_iterator(s, sep)
     return sub
 }
 
@@ -120,7 +128,10 @@ parse_full_f :: proc(f_data: string) -> [3]Obj_FaceIndex {
 // Need an update
 load_ObjData_from_file :: proc(obj_filename: string) -> ObjData {
     data, ok := os.read_entire_file_from_filename(obj_filename, context.temp_allocator); defer delete(data, context.temp_allocator)
-    assert(ok)
+    if !ok {
+        log.debugf("Error while loading file: {}", obj_filename)
+        os.exit(1)
+    }
 
     positions := make([dynamic]Vec3f, allocator=context.temp_allocator)
     uvs := make([dynamic]Vec2f, allocator=context.temp_allocator)
@@ -139,11 +150,7 @@ load_ObjData_from_file :: proc(obj_filename: string) -> ObjData {
                     case 'n':
                         continue
                     case 't':
-                        // append(&positions, parse_v(line[2:]))
-                        append(&uvs, Vec2f{0.0, 0.0})
-                    case:
-                        continue
-
+                        append(&uvs, parse_vt(line[3:]))
                 }
             case 'f':
                 if strings.contains(line[2:], "/") {
@@ -155,8 +162,6 @@ load_ObjData_from_file :: proc(obj_filename: string) -> ObjData {
                     indices := parse_full_f(line[2:])
                     append_elems(&faces, indices[0], indices[1], indices[2])
                 }
-            case:
-                continue
         }
     }
 
@@ -168,46 +173,8 @@ load_ObjData_from_file :: proc(obj_filename: string) -> ObjData {
     }
 }
 
-load_ObjData_from_file_with_texture :: proc(obj_filename: string, texture_filename: string) -> ObjData {
-    data, ok := os.read_entire_file_from_filename(obj_filename, context.temp_allocator); defer delete(data, context.temp_allocator)
-    assert(ok)
-
-    positions := make([dynamic]Vec3f, allocator=context.temp_allocator)
-    faces := make([dynamic]Obj_FaceIndex, allocator=context.temp_allocator)
-
-    it := string(data)
-    for line in strings.split_lines_iterator(&it) {
-        if len(line) == 0 do continue
-
-        switch line[0] {
-            case 'v':
-                switch line[1] {
-                    case ' ':
-                        append(&positions, parse_v(line[2:]))
-                    case:
-                        continue
-
-                }
-            case 'f':
-                indices := parse_f(line[2:])
-                append_elems(&faces, indices[0], indices[1], indices[2])
-            case:
-                continue
-        }
-    }
-
-    return {
-        positions = positions[:],
-        faces = faces[:]
-    }
-}
-
-load_ObjData :: proc {
-    load_ObjData_from_file,
-    load_ObjData_from_file_with_texture,
-}
-
 ObjData_destroy :: proc(obj: ObjData) {
+    free_all(context.temp_allocator)
     delete(obj.positions)
     delete(obj.faces)
     delete(obj.uvs)
