@@ -27,8 +27,9 @@ sg_range :: proc {
     sg_range_from_struct,
 }
 
-sg_get_image :: proc(filename: string) -> sg.Image {
+sg_get_image :: proc(filename: string, flip_image_on_load: i32 = 1) -> sg.Image {
     texture_dim: Vec2i
+    stbi.set_flip_vertically_on_load(flip_image_on_load)
     texture_data := stbi.load(strings.unsafe_string_to_cstring(filename), &texture_dim.x, &texture_dim.y, nil, 4)
     assert(texture_data != nil)
 
