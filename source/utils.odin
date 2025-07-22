@@ -1,11 +1,13 @@
 package main
 
+import "core:math"
 import "core:c"
 import "core:strings"
 import "core:strconv"
 import "core:os"
 import "core:fmt"
 import "core:log"
+import "core:math/linalg"
 
 import sg "sokol/gfx"
 
@@ -40,6 +42,12 @@ ObjData :: struct {
 ObjModel :: struct {
     data: ObjData,
     texture: sg.Image
+}
+
+Camera :: struct {
+    position: Vec3f,
+    target: Vec3f,
+    look: Vec2f
 }
 
 parse_string_to_f32 :: proc(float_str: string) -> f32 {
@@ -191,4 +199,30 @@ ObjModel_from_ObjData :: proc(obj_data: ObjData, texture_filename: string) -> Ob
 ObjModel_destroy :: proc(model: ObjModel) {
     ObjData_destroy(model.data)
     sg.destroy_image(model.texture)
+}
+
+MOVE_SPEED :: 4.0
+SENSITIVITY :: 0.09
+update_camera :: proc(dt: f32) {
+    move_input: Vec2f
+    if key_down[.W] do move_input.y = 1
+    else if key_down[.S] do move_input.y = -1
+    if key_down[.A] do move_input.x = -1
+    else if key_down[.D] do move_input.x = 1
+
+    look_input: Vec2f = -mouse_move * SENSITIVITY
+    state.camera.look += look_input
+    state.camera.look.x = math.wrap(state.camera.look.x, 360)
+    state.camera.look.y = math.clamp(state.camera.look.y, -90, 90)
+
+    look_mat := linalg.matrix4_from_yaw_pitch_roll_f32(linalg.to_radians(state.camera.look.x), linalg.to_radians(state.camera.look.y), 0.0)
+    forward := (look_mat * Vec4f{0.0, 0.0, -1.0, 1.0}).xyz
+    right := (look_mat * Vec4f{1.0, 0.0, 0.0, 1.0}).xyz
+
+    move_dir := forward * move_input.y + right * move_input.x
+
+    motion := linalg.normalize0(move_dir) * MOVE_SPEED * dt
+    state.camera.position += motion
+
+    state.camera.target = state.camera.position + forward
 }
