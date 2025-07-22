@@ -17,7 +17,7 @@ out vec2 out_uv;
 
 void main() {
     gl_Position = mvp * vec4(in_position, 1.0);
-    gl_PointSize = 3.5;
+    gl_PointSize = 10.5;
     out_color = in_color;
     out_uv = in_uv;
 }
