@@ -23,13 +23,18 @@ State :: struct {
     texture: sg.Image,
     sampler: sg.Sampler,
     pipeline_index: int,
-    rotation: f32
+    rotation: f32,
+    camera: Camera
 }
 
 state: ^State
 obj: ObjData
 model: ObjModel
 default_context: runtime.Context
+
+mouse_move: Vec2f
+key_down: #sparse[sapp.Keycode]bool
+
 
 main :: proc() {
     context.logger = log.create_console_logger()
@@ -59,7 +64,15 @@ init_cb :: proc "c" () {
         logger = sg.Logger(shelpers.logger(&default_context))
     })
 
+    sapp.show_mouse(false)
+    sapp.lock_mouse(true)
+
     state = new(State)
+
+    state.camera = {
+        position = {0.0, 0.0, 2.0},
+        target = {0.0, 0.0, 1.0}
+    }
 
     state.pass_action = {
         colors = {
@@ -70,7 +83,7 @@ init_cb :: proc "c" () {
     state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
     state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
 
-    obj = load_ObjData_from_file("assets/models/bullet-foam-thick.obj")
+    obj = load_ObjData_from_file("assets/models/blaster-a.obj")
     model = ObjModel_from_ObjData(obj, "assets/textures/colormap.png")
 
     new_vertices := make([]Vertex, len(obj.faces), context.temp_allocator)
@@ -179,17 +192,32 @@ init_cb :: proc "c" () {
 frame_cb :: proc "c" () {
     context = default_context
 
+    if key_down[.ESCAPE] == true {
+        sapp.request_quit()
+    }
+    if key_down[.LEFT_ALT] == true {
+        sapp.lock_mouse(false)
+        sapp.show_mouse(true)
+    }
+    else {
+        sapp.lock_mouse(true)
+        sapp.show_mouse(false)
+    }
+
     dt := cast(f32)sapp.frame_duration()
+
+    update_camera(dt)
 
     state.rotation += linalg.to_radians(60.0 * dt)
 
-    proj_mat := linalg.matrix4_perspective_f32(70, sapp.widthf() / sapp.heightf(), 0.0001, 1000)
-    model_mat := linalg.matrix4_translate_f32({0.0, -0.10, -2.25}) * linalg.matrix4_from_yaw_pitch_roll(state.rotation, 0.0, 0.0)
-
+    p := linalg.matrix4_perspective_f32(70, sapp.widthf() / sapp.heightf(), 0.0001, 1000)
+    m := linalg.matrix4_translate_f32({0.0, -0.10, -2.25}) * linalg.matrix4_from_yaw_pitch_roll(state.rotation, 0.0, 0.0)
+    v := linalg.matrix4_look_at_f32(state.camera.position, state.camera.target, {0.0, 1.0, 0.0})
+    
     sg.begin_pass({swapchain = shelpers.glue_swapchain(), action = state.pass_action})
 
     vs_params := shader.Vs_Params {
-        mvp = proj_mat * model_mat
+        mvp = p * v * m
     }
 
     sg.apply_pipeline(state.pipeline[state.pipeline_index])
@@ -208,6 +236,8 @@ frame_cb :: proc "c" () {
     sg.end_pass()
 
     sg.commit()
+
+    mouse_move = {}
 }
 
 cleanup_cb :: proc "c" () {
@@ -233,10 +263,16 @@ cleanup_cb :: proc "c" () {
 event_cb :: proc "c" (event: ^sapp.Event) {
     #partial switch event.type {
         case .KEY_DOWN:
-        if event.key_code == .ESCAPE do sapp.request_quit()
-        if event.key_code == .TAB {
-            state.pipeline_index += 1
-            state.pipeline_index = state.pipeline_index % len(state.pipeline)
-        }
+            if event.key_code == .TAB {
+                state.pipeline_index += 1
+                state.pipeline_index = state.pipeline_index % len(state.pipeline)
+            }
+            key_down[event.key_code] = true
+        
+        case .KEY_UP:
+            key_down[event.key_code] = false
+        
+        case .MOUSE_MOVE:
+            mouse_move += {event.mouse_dx, event.mouse_dy}
     }
 }
