@@ -3,12 +3,12 @@
 
 @ctype mat4 Mat4 // Sorte de remplacement de code en fait.
 
-@vs vs
+@vs vs_textured
 in vec3 in_position;
 in vec4 in_color;
 in vec2 in_uv;
 
-layout(binding = 0) uniform vs_params {
+layout(binding = 0) uniform textured_vs_params {
     mat4 mvp;
 };
 
@@ -23,7 +23,7 @@ void main() {
 @end
 
 
-@fs fs
+@fs fs_textured
 in vec4 color;
 in vec2 out_uv;
 
@@ -37,4 +37,4 @@ void main() {
 }
 @end
 
-@program textured vs fs
+@program textured vs_textured fs_textured

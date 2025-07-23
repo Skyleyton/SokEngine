@@ -3,12 +3,12 @@
 
 @ctype mat4 Mat4
 
-@vs vs
+@vs vs_textured_points
 in vec3 in_position;
 in vec4 in_color;
 in vec2 in_uv;
 
-layout(binding = 0) uniform vs_params_points {
+layout(binding = 0) uniform textured_points_vs_params {
     mat4 mvp;
 };
 
@@ -23,7 +23,7 @@ void main() {
 }
 @end
 
-@fs fs
+@fs fs_textured_points
 in vec4 out_color;
 in vec2 out_uv;
 
@@ -37,4 +37,4 @@ void main() {
 }
 @end
 
-@program textured_points vs fs
+@program textured_points vs_textured_points fs_textured_points
