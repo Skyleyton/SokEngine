@@ -7,7 +7,10 @@ import "core:strconv"
 import "core:os"
 import "core:fmt"
 import "core:log"
+
 import "core:math/linalg"
+import "core:math/rand"
+import "core:math/noise"
 
 import sg "sokol/gfx"
 
@@ -181,6 +184,27 @@ load_ObjData_from_file :: proc(obj_filename: string) -> ObjData {
     }
 }
 
+ObjData_buffers_settings :: proc(obj_data: ObjData, vertices: []Vertex, indices: []u16) {
+    for face, i in obj.faces {
+        if obj.with_slash {
+            vertices[i] = {
+                position = obj.positions[face.pos],
+                color = {1.0, 1.0, 1.0, 1.0},
+                uv = obj.uvs[face.uv]
+            }
+        }
+        else {
+            vertices[i] = {
+                position = obj.positions[face.pos],
+                color = {1.0, 1.0, 1.0, 1.0},
+                uv = {}
+            }
+        }
+        
+        indices[i] = cast(u16)i
+    }
+}
+
 ObjData_destroy :: proc(obj: ObjData) {
     free_all(context.temp_allocator)
     delete(obj.positions)
@@ -225,4 +249,50 @@ update_camera :: proc(dt: f32) {
     state.camera.position += motion
 
     state.camera.target = state.camera.position + forward
+}
+
+// Permets une flat génération de terrain.
+generate_flat_vertices :: proc() -> ([]Vertex, []u16) {
+    scale := 0.1
+    amplitude := 5.0
+    width: int = 10
+    depth: int = 10
+    spacing := 10.0
+    vertices: [dynamic]Vertex
+    indices: [dynamic]u16
+            
+    for z in 0..<depth {
+        for x in 0..<width {
+            seed := rand.int_max(25)
+            y := noise.noise_2d(i64(seed), {f64(x) * scale, f64(z) * scale}) * f32(amplitude)
+            log.debug(y)
+            index: int = (z * width + x) * 3;
+            vertex := Vertex{
+                position = {f32(x) * f32(spacing), y, f32(-z) * f32(spacing)}, // -z pour aller vers l'arrière.
+                color = {1.0, 1.0, 1.0, 1.0},
+                uv = {0.46875, 0.09166666}
+            }
+            append(&vertices, vertex)
+        }
+    }
+
+    // Indices generation
+    for z in 0..<depth-1 {
+        for x in 0..<width-1 {
+            top_left := z * width + x
+            top_right := top_left + 1
+            bottom_left := (z + 1) * width + x
+            bottom_right := bottom_left + 1
+
+            append(&indices, u16(top_left))
+            append(&indices, u16(bottom_left))
+            append(&indices, u16(top_right))
+            
+            append(&indices, u16(top_right))
+            append(&indices, u16(bottom_left))
+            append(&indices, u16(bottom_right))
+        }
+    }
+
+    return vertices[:], indices[:]
 }

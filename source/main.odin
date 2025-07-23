@@ -24,7 +24,7 @@ State :: struct {
     sampler: sg.Sampler,
     pipeline_index: int,
     rotation: f32,
-    camera: Camera
+    camera: Camera,
 }
 
 state: ^State
@@ -34,7 +34,7 @@ default_context: runtime.Context
 
 mouse_move: Vec2f
 key_down: #sparse[sapp.Keycode]bool
-
+indices_len: i32
 
 main :: proc() {
     context.logger = log.create_console_logger()
@@ -44,10 +44,8 @@ main :: proc() {
         width = 800,
         height = 600,
         window_title = "Sokengine",
-
         logger = sapp.Logger(shelpers.logger(&default_context)),
         allocator = sapp.Allocator(shelpers.allocator(&default_context)),
-
         init_cb = init_cb,
         frame_cb = frame_cb,
         cleanup_cb = cleanup_cb,
@@ -81,42 +79,29 @@ init_cb :: proc "c" () {
     }
 
     state.shader[0] = sg.make_shader(shader.textured_shader_desc(sg.query_backend()))
-    state.shader[1] = sg.make_shader(shader.textured_points_shader_desc(sg.query_backend()))
+    state.shader[1] = sg.make_shader(shader.base_points_shader_desc(sg.query_backend()))
 
     obj = load_ObjData_from_file("assets/models/blaster-a.obj")
     model = ObjModel_from_ObjData(obj, "assets/textures/colormap.png")
 
+    vertices, indices := generate_flat_vertices()
+
     new_vertices := make([]Vertex, len(obj.faces), context.temp_allocator)
     new_indices := make([]u16, len(obj.faces), context.temp_allocator)
 
-    for face, i in obj.faces {
-        if obj.with_slash {
-            new_vertices[i] = {
-                position = obj.positions[face.pos],
-                color = {1.0, 1.0, 1.0, 1.0},
-                uv = obj.uvs[face.uv]
-            }
-        }
-        else {
-            new_vertices[i] = {
-                position = obj.positions[face.pos],
-                color = {1.0, 1.0, 1.0, 1.0},
-                uv = {}
-            }
-        }
-        
-        new_indices[i] = cast(u16)i
-    }
+    indices_len = cast(i32)len(indices)
+
+    ObjData_buffers_settings(obj, new_vertices, new_indices)
 
     state.vertex_buffer = sg.make_buffer({
-        data = sg_range(new_vertices)
+        data = sg_range(vertices)
     })
 
     state.index_buffer = sg.make_buffer({
         usage = {
             index_buffer = true
         },
-        data = sg_range(new_indices)
+        data = sg_range(indices)
     })
 
     state.pipeline[0] = sg.make_pipeline({
@@ -130,32 +115,10 @@ init_cb :: proc "c" () {
                 shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
         },
-        /*color_count = 1,
-        colors = {
-            0 = {
-                blend = {
-                    enabled = true,
-                    src_factor_rgb = .SRC_ALPHA,
-                    dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
-                    op_rgb = .ADD,
-                    src_factor_alpha = .SRC_ALPHA,
-                    dst_factor_alpha = .ONE_MINUS_SRC_ALPHA,
-                    op_alpha = .ADD
-                }
-            }
-        },*/
         depth = {
             write_enabled = true,
             compare = .LESS_EQUAL
         },
-        stencil = {
-            enabled = true,
-            read_mask = 1,
-            write_mask = 1,
-            back = {
-                compare = .LESS_EQUAL
-            },
-        }
     })
 
     state.pipeline[1] = sg.make_pipeline({
@@ -165,22 +128,12 @@ init_cb :: proc "c" () {
         layout = {
             attrs = {
                 shader.ATTR_base_points_in_position = {format = .FLOAT3},
-                shader.ATTR_base_points_in_color = {format = .FLOAT4},
-                shader.ATTR_textured_in_uv = {format = .FLOAT2}
             }
         },
         depth = {
             write_enabled = true,
             compare = .LESS_EQUAL
         },
-        stencil = {
-            enabled = true,
-            read_mask = 1,
-            write_mask = 1,
-            back = {
-                compare = .LESS_EQUAL
-            },
-        }
     })
 
     state.texture = sg_get_image("assets/textures/colormap.png")
@@ -208,7 +161,7 @@ frame_cb :: proc "c" () {
 
     update_camera(dt)
 
-    state.rotation += linalg.to_radians(60.0 * dt)
+    // state.rotation += linalg.to_radians(60.0 * dt)
 
     p := linalg.matrix4_perspective_f32(70, sapp.widthf() / sapp.heightf(), 0.0001, 1000)
     m := linalg.matrix4_translate_f32({0.0, -0.10, -2.25}) * linalg.matrix4_from_yaw_pitch_roll(state.rotation, 0.0, 0.0)
@@ -216,12 +169,11 @@ frame_cb :: proc "c" () {
     
     sg.begin_pass({swapchain = shelpers.glue_swapchain(), action = state.pass_action})
 
-    vs_params := shader.Vs_Params {
+    vs_params := shader.Textured_Vs_Params {
         mvp = p * v * m
     }
 
-    sg.apply_pipeline(state.pipeline[state.pipeline_index])
-    
+    sg.apply_pipeline(state.pipeline[0])
     binding := sg.Bindings{
         vertex_buffers = {0 = state.vertex_buffer},
         index_buffer = state.index_buffer,
@@ -229,9 +181,13 @@ frame_cb :: proc "c" () {
         samplers = {shader.SMP_smp = state.sampler},
     }
     sg.apply_bindings(binding)
-    
-    sg.apply_uniforms(shader.UB_vs_params, sg_range(&vs_params))
-    sg.draw(0, len(obj.faces), 1)
+    sg.apply_uniforms(shader.UB_textured_vs_params, sg_range(&vs_params))
+    sg.draw(0, indices_len, 1)
+
+    sg.apply_pipeline(state.pipeline[1])
+    sg.apply_bindings(binding)
+    sg.apply_uniforms(shader.UB_base_points_vs_params, sg_range(&vs_params))
+    sg.draw(0, indices_len, 1)
 
     sg.end_pass()
 
