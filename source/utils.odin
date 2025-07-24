@@ -255,8 +255,8 @@ update_camera :: proc(dt: f32) {
 generate_flat_vertices :: proc() -> ([]Vertex, []u16) {
     scale := 0.1
     amplitude := 5.0
-    width: int = 10
-    depth: int = 10
+    width: int = 5
+    depth: int = 5
     spacing := 10.0
     vertices: [dynamic]Vertex
     indices: [dynamic]u16
