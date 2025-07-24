@@ -1,14 +1,16 @@
 @header package shaders
 @header import sg "../sokol/gfx"
 
+@module textured_points
+
 @ctype mat4 Mat4
 
-@vs vs_textured_points
+@vs vs
 in vec3 in_position;
 in vec4 in_color;
 in vec2 in_uv;
 
-layout(binding = 0) uniform textured_points_vs_params {
+layout(binding = 0) uniform points_vs_params {
     mat4 mvp;
 };
 
@@ -23,7 +25,7 @@ void main() {
 }
 @end
 
-@fs fs_textured_points
+@fs fs
 in vec4 out_color;
 in vec2 out_uv;
 
@@ -37,4 +39,4 @@ void main() {
 }
 @end
 
-@program textured_points vs_textured_points fs_textured_points
+@program textured_points vs fs

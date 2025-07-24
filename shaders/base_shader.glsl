@@ -1,7 +1,7 @@
 @header package shaders
 @header import sg "../sokol/gfx"
 
-@vs vs_base
+@vs vs
 in vec3 in_position;
 in vec4 in_color;
 
@@ -13,7 +13,7 @@ void main() {
 }
 @end
 
-@fs fs_base
+@fs fs
 in vec4 color;
 
 out vec4 frag_color;
@@ -24,4 +24,4 @@ void main() {
 @end
 
 // Le nom du shader
-@program base vs_base fs_base
+@program base vs fs
