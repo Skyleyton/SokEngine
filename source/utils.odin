@@ -257,20 +257,30 @@ generate_flat_vertices :: proc() -> ([]Vertex, []u16) {
     amplitude := 5.0
     width: int = 5
     depth: int = 5
-    spacing := 10.0
+    spacing := 5.0
     vertices: [dynamic]Vertex
     indices: [dynamic]u16
-            
+
+    uv: Vec2f
+
+    tile_x := 1.0 / 16.0
+    tile_y := 1.0 / 4.0
+
     for z in 0..<depth {
         for x in 0..<width {
             seed := rand.int_max(25)
             y := noise.noise_2d(i64(seed), {f64(x) * scale, f64(z) * scale}) * f32(amplitude)
             log.debug(y)
-            index: int = (z * width + x) * 3;
+            if y >= 2.5 && y <= 3.2 {
+                uv = {0.46875, 0.09166666}
+            }
+            else if y < 2.5 {
+                uv = {0.1880, 0.30}
+            }
             vertex := Vertex{
                 position = {f32(x) * f32(spacing), y, f32(-z) * f32(spacing)}, // -z pour aller vers l'arrière.
                 color = {1.0, 1.0, 1.0, 1.0},
-                uv = {0.46875, 0.09166666}
+                uv = uv
             }
             append(&vertices, vertex)
         }
