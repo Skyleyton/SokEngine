@@ -24,13 +24,13 @@ def process_commands(command_list: list[str]) -> bool:
     return False
 
 def main():
-    platform = platform.system()
+    platform_used = platform.system()
     # Need some arguments.
     if len(sys.argv) != 2:
         print("build.py <build | run>")
         return
     
-    if platform == "Windows":
+    if platform_used == "Windows":
         # Build mode
         if sys.argv[1] == "build":
             start = time.time()
@@ -44,12 +44,13 @@ def main():
         # Run mode
         if sys.argv[1] == "run":
             process_commands([".\\generate_shader.bat", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
+            return
 
-    if platform == "Linux":
+    if platform_used == "Linux":
         # Build mode
         if sys.argv[1] == "build":
             start = time.time()
-            if process_commands([".\\generate_shader.sh", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
+            if process_commands(["./generate_shader.sh", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
                 print("Build finished without error")
                 end = time.time()
                 build_time = end - start
@@ -58,7 +59,8 @@ def main():
     
         # Run mode
         if sys.argv[1] == "run":
-            process_commands([".\\generate_shader.sh", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
+            process_commands(["./generate_shader.sh", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
+            return
 
 if __name__ == "__main__":
     main()
