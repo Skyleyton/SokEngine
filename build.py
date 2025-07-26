@@ -49,7 +49,7 @@ def main():
         # Build mode
         if sys.argv[1] == "build":
             start = time.time()
-            if process_commands([".\\generate_shader.bat", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
+            if process_commands([".\\generate_shader.sh", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
                 print("Build finished without error")
                 end = time.time()
                 build_time = end - start
@@ -58,7 +58,7 @@ def main():
     
         # Run mode
         if sys.argv[1] == "run":
-            process_commands([".\\generate_shader.bat", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
+            process_commands([".\\generate_shader.sh", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
 
 if __name__ == "__main__":
     main()
