@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+import platform
 
 # For one command
 def process_command(command_name: str) -> bool:
@@ -23,24 +24,41 @@ def process_commands(command_list: list[str]) -> bool:
     return False
 
 def main():
+    platform = platform.system()
     # Need some arguments.
     if len(sys.argv) != 2:
         print("build.py <build | run>")
         return
     
-    # Build mode
-    if sys.argv[1] == "build":
-        start = time.time()
-        if process_commands([".\\generate_shader.bat", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
-            print("Build finished without error")
-            end = time.time()
-            build_time = end - start
-            print(f"Build Time: {build_time}s")
-            return
+    if platform == "Windows":
+        # Build mode
+        if sys.argv[1] == "build":
+            start = time.time()
+            if process_commands([".\\generate_shader.bat", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
+                print("Build finished without error")
+                end = time.time()
+                build_time = end - start
+                print(f"Build Time: {build_time}s")
+                return
     
-    # Run mode
-    if sys.argv[1] == "run":
-        process_commands([".\\generate_shader.bat", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
+        # Run mode
+        if sys.argv[1] == "run":
+            process_commands([".\\generate_shader.bat", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
+
+    if platform == "Linux":
+        # Build mode
+        if sys.argv[1] == "build":
+            start = time.time()
+            if process_commands([".\\generate_shader.bat", "odin build source/ -debug -define:SOKOL_USE_GL=true"]):
+                print("Build finished without error")
+                end = time.time()
+                build_time = end - start
+                print(f"Build Time: {build_time}s")
+                return
+    
+        # Run mode
+        if sys.argv[1] == "run":
+            process_commands([".\\generate_shader.bat", "odin run source/ -debug -define:SOKOL_USE_GL=true"])
 
 if __name__ == "__main__":
     main()
