@@ -25,6 +25,7 @@ State :: struct {
     pipeline_index: int,
     rotation: f32,
     camera: Camera,
+    world: []i32
 }
 
 state: ^State
@@ -142,6 +143,10 @@ init_cb :: proc "c" () {
     state.sampler = sg.make_sampler({})
 
     state.pipeline_index = 0
+
+    // GAME
+    init_world()
+    log.debug(state.world)
 }
 
 frame_cb :: proc "c" () {
@@ -186,14 +191,14 @@ frame_cb :: proc "c" () {
     sg.apply_uniforms(shader.UB_textured_vs_params, sg_range(&vs_params))
     sg.draw(0, indices_len, 1)
 
-    sg.apply_pipeline(state.pipeline[1])
-    binding = sg.Bindings{
-        vertex_buffers = {0 = state.vertex_buffer},
-        index_buffer = state.index_buffer,
-    }
-    sg.apply_bindings(binding)
-    sg.apply_uniforms(shader.UB_base_points_vs_params, sg_range(&vs_params))
-    sg.draw(0, indices_len, 1)
+    // sg.apply_pipeline(state.pipeline[1])
+    // binding = sg.Bindings{
+    //     vertex_buffers = {0 = state.vertex_buffer},
+    //     index_buffer = state.index_buffer,
+    // }
+    // sg.apply_bindings(binding)
+    // sg.apply_uniforms(shader.UB_base_points_vs_params, sg_range(&vs_params))
+    // sg.draw(0, indices_len, 1)
 
     sg.end_pass()
 
